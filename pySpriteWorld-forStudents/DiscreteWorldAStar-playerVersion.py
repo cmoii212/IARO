@@ -12,6 +12,9 @@ from itertools import chain
 import pygame
 import glo
 
+import iaplayer as Joueur
+from utils import *
+
 import random 
 import numpy as np
 import sys
@@ -20,7 +23,6 @@ import sys
 # ---- ---- ---- ---- ---- ----
 # ---- Misc                ----
 # ---- ---- ---- ---- ---- ----
-
 
 
 
@@ -69,7 +71,12 @@ def main():
     # on localise tous les murs
     wallStates = [w.get_rowcol() for w in game.layers['obstacle']]
     #print ("Wall states:", wallStates)
-        
+
+    #-------------------------------    
+    # Initialisation du joueur
+    #-------------------------------
+    board = Board(initStates, goalStates, wallStates, 21, 21)
+    joueur = Joueur.AStarPlayer(initStates[0], 0,board)
     
     #-------------------------------
     # Building the best path with A*
@@ -90,25 +97,15 @@ def main():
     #row2,col2 = (5,5)
 
     for i in range(iterations):
-    
-    
-        x_inc,y_inc = random.choice([(0,1),(0,-1),(1,0),(-1,0)])
-        next_row = row+x_inc
-        next_col = col+y_inc
+        next_row ,next_col = joueur.nextMove()
         if ((next_row,next_col) not in wallStates) and next_row>=0 and next_row<=20 and next_col>=0 and next_col<=20:
-            player.set_rowcol(next_row,next_col)
+            movePlayer(joueur, player, (next_row,next_col))
             print ("pos 1:",next_row,next_col)
             game.mainiteration()
-
-            col=next_col
-            row=next_row
-
-            
-        
-            
+            row, col =  next_row ,next_col
         # si on a  trouvé l'objet on le ramasse
         if (row,col)==goalStates[0]:
-            o = game.player.ramasse(game.layers)
+            o = playerPickup(game, joueur, player)
             game.mainiteration()
             print ("Objet trouvé!", o)
             break
@@ -116,7 +113,6 @@ def main():
         #x,y = game.player.get_pos()
     
         '''
-
     pygame.quit()
     
         

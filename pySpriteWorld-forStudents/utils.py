@@ -1,4 +1,7 @@
 # -*- coding: utf-8 -*-
+import random as rd
+import numpy as np
+import heapq as hp
 
 inc = [(0,1),(0,-1),(1,0),(-1,0)]
 
@@ -6,34 +9,66 @@ def movePlayer(joueur, player, state):
     player.set_rowcol(state[0], state[1])
     joueur.setState(state)
 
-def playerPickup(game, joueur):
+def playerPickup(game, joueur, player):
     joueur.pickup()
-    o = game.player.ramasse(game.layers)
+    o = player.ramasse(game.layers)
     return o
 
-class Board():
+def AStar(state, goal, problem):
+        nodeInit = Node(state)
+        frontiere = [(nodeInit.g + manhattan(state, goal), nodeInit)]
+        reserve = {}
+        bestNode = nodeInit
+        while frontiere != [] and goal != bestNode.state:
+            #c = input()
+            #print(frontiere)
+            #print(reserve)
+            (min_f, bestNode) = hp.heappop(frontiere)
+            #print((min_f, bestNode))
+            if not(problem.immatriculation(bestNode.state) in reserve):
+                reserve[problem.immatriculation(bestNode.state)] = bestNode.g
+                nodes = bestNode.expand(problem)
+                #print('\t',nodes)
+                for node in nodes:
+                    f = node.g + manhattan(node.state, goal)
+                    hp.heappush(frontiere, (f, node))
+        #print(frontiere)
+        #print(reserve)
+        return bestNode.path()
+
+class Problem():
+    def __init__(self, shape, constraint):
+        self.shape = shape
+        self.constraint = constraint
+        self.dim = len(shape)
+        
+    def isIn(self, state):
+        for i in range(self.dim):
+            if not(0 <= state[i] <= self.shape[i]):
+                return False
+        return not self.isConstraint(state)
+    
+    def isConstraint(self, state):
+        return state in self.constraint
+
+    def immatriculation(self,state):
+        res = state[0] * self.shape[1] + state[1]
+        for i in range(1, self.dim - 1):
+            res = self.shape[i+1] * res + state[i+1]
+        return res
+    
+class Board(Problem):
     def __init__(self, initStates, goalStates, wallStates, maxRow, maxCol):
+        super().__init__((maxRow, maxCol), wallStates)
         self.playerStates = initStates
         self.goalStates = goalStates
-        self.wallStates = wallStates
-        self.maxRow = maxRow
-        self.maxCol = maxCol
-        
-    def isIn(self,pos):
-        """
-        Retourne le boolean indiquant si la position est accessible par le joueur
-        """
-        return pos not in self.wallStates and 0 <= pos[0] <= self.maxRow and 0 <= pos[1] <= self.maxCol
-    
-    def isWall(self,pos):
-        return pos in self.wallStates
 
-    def isGoalState(self, pos):
-        return pos in self.goalStates
+    def isGoalState(self, state):
+        return state in self.goalStates
 
     def setGoalStates(self, goalStates):
         self.goalStates = goalStates
-
+        
     def pickup(self, pos):
         self.goalStates.remove(pos)
 
@@ -42,13 +77,17 @@ class Board():
 
     def goal(self, player):
         return self.goalStates[player]
+
+    def isAccessible(self, state):
+        return self.isIn(state) and not(state in self.playerStates)
+    
     def show(self):
-        tab = [["_" for i in range(self.maxCol)] for j in range(self.maxRow)]
+        tab = [["_" for i in range(self.shape[0])] for j in range(self.shape[1])]
         for r,c in self.playerStates:
             tab[r][c] = 'j'
         for r,c in self.goalStates:
             tab[r][c] = 'g'
-        for r,c in self.wallStates:
+        for r,c in self.constraint:
             tab[r][c] = '#'
         for i in range(len(tab)):
             tab[i] = ' '.join(tab[i])
@@ -59,7 +98,7 @@ def manhattan(pos1, pos2):
 
 class Node():
     number = 0
-    def __init__(self, state, parent=None):
+    def __init__(self, state,parent=None):
         self.state = state
         self.parent = parent
         self.successor = []
@@ -92,7 +131,7 @@ class Node():
     def expand(self, board):
         if self.successor == []:
             r, c = self.state
-            self.successor = [Node((r+i,c+j), self) for (i,j) in inc if board.isIn((r+i, c+j))]
+            self.successor = [Node((r+i,c+j), self) for (i,j) in inc if board.isAccessible((r+i, c+j))]
         return self.successor
     def path(self):
         node, res = self, [self.state]
@@ -100,6 +139,3 @@ class Node():
             res.insert(0,node.parent.state)
             node = node.parent
         return res
-    def immatriculation(self, board):
-        r, c = self.state
-        return r * board.maxRow + c
