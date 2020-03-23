@@ -27,14 +27,11 @@ class Player():
     def toString(self):
         return "Player %0d"%self.id
 
-    def isIn(self,state):
+    def isAccessible(self,state):
         """
         Retourne le boolean indiquant si la position est accessible par le joueur
         """
-        return self.board.isIn(state)
-    
-    def isWall(self,pos):
-        return self.board.isWall(pos)
+        return self.board.isAccessible(state)
 
     def isGoalState(self, pos):
         return self.board.isGoalState(pos)
@@ -61,7 +58,7 @@ class HumanPlayer(Player):
     
     def nextMove(self):
         r, c = self.state
-        nextStates = [(r+i,c+j) for (i,j) in inc if self.isIn((r+i, c+j))]
+        nextStates = board.successor(self.state)
         print(nextStates)
         print(pattern)
         nextState = None
@@ -69,7 +66,7 @@ class HumanPlayer(Player):
             nr, nc = human_player_input()
             nextState = None if nr == nc == 0 else (r + nr, c + nc)
             if nextState != None:
-                nextState = nextState if self.isIn(nextState) else None
+                nextState = nextState if self.isAccessible(nextState) else None
         return nextState
     
     def toString(self):
@@ -83,40 +80,62 @@ class RandomPlayer(Player):
     
     def nextMove(self):
         r, c = self.state
-        nextStates = [(r+i,c+j) for (i,j) in inc if self.isIn((r+i, c+j))]
+        nextStates = board.successor(self.state)
         return rd.choice(nextStates)
     
     def toString(self):
         return "Random Player %0d"%self.id
 
 class AStarPlayer(Player):
+    """
+    A* pathfinding agent with local repair
+    """
     def __init__(self, initState, index, board):
         super().__init__(initState, index, board)
         self.path = []
+        self.step = -1
 
     def updatePath(self):
         self.path = AStar(self.state, self.board.goal(self.index), self.board)
         self.step = 1 if len(self.path) > 1 else 0
-    
-    def nextMove(self):
-        try:
-            if self.path == []:
+
+    def process(self):
+        if self.path == []:
+            self.updatePath()
+        else:
+            # Le chemin ne mene plus a l'objectif
+            if self.path[-1] != self.board.goal(self.index):
                 self.updatePath()
+            #Si le chemin est bloqué
+            elif not self.board.isAccessible(self.path[self.step]):
+                self.updatePath()
+            #Continue le chemin calcule
             else:
-                # Le chemin ne mene plus a l'objectif
-                if self.path[-1] != self.board.goal(self.index):
-                    self.updatePath()
-                #Si le chemin est bloqué
-                elif not self.board.isAccessible(self.path[self.step]):
-                    self.updatePath()
-                else:
-                    self.step += 1
-            return self.path[self.step]
-        except:
-            print("joueur",self.index)
-            print(self.path, self.step)
-            print(self.board.goal(self.index))
+                self.step += 1
+            
+    def nextMove(self):
+        self.process()
+        return self.path[self.step]
             
     
     def toString(self):
         return "A* Player %0d"%self.id
+
+class CoopAstar(Player):
+    """
+    A* pathfinding agent with local repair
+    """
+    def __init__(self, initState, index, timeBoard):
+        super().__init__(initState, index, timeBoard)
+        self.path = []
+        self.step = -1
+        
+    def process(self):
+        return 0
+    
+    def nextMove(self):
+        self.process()
+        return self.initState
+
+    def toString(self):
+        return "Coop A* Player %0d"%self.id
